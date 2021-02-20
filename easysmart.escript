@@ -2,6 +2,7 @@
 
 % using info from https://www.chrisdcmoore.co.uk/post/tplink-easy-smart-switch-vulnerabilities/
 
+% key from https://github.com/janisstreib/tp-link-intercept
 -define(KEY, <<"Ei2HNryt8ysSdRRI54XNQHBEbOIRqNjQgYxsTmuW3srSVRVFyLh8mwvhBLPFQph3ecDMLnDtjDUdrUwt7oTsJuYl72hXESNiD6jFIQCtQN1unsmn3JXjeYwGJ55pqTkVyN2OOm3vekF6G1LM4t3kiiG4lGwbxG4CG1s5Sli7gcINFBOLXQnPpsQNWDmPbOm74mE7eyR3L7tk8tUhI17FLKm11hrrd1ck74bMw3VYSK3X5RrDgXelewMU6o1tJ3iX">>).
 -define(CLIENT_PORT, 29809).
 -define(SERVER_PORT, 29808).
@@ -17,7 +18,6 @@ main(["observe"]) ->
 
 main([RawAddress]) ->
 	application:start(crypto),
-	% key from https://github.com/janisstreib/tp-link-intercept
 
 	Parsed = parse_mac(RawAddress),
 
