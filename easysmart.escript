@@ -1,4 +1,4 @@
-#!/usr/local/lib/erlang23/bin/escript
+#!/usr/local/lib/erlang24/bin/escript
 
 % using info from https://www.chrisdcmoore.co.uk/post/tplink-easy-smart-switch-vulnerabilities/
 
@@ -9,6 +9,7 @@
 
 -define(PORT_STATISTICS, 16384).
 
+-include_lib("xmerl/include/xmerl.hrl").
 
 main(["observe"]) ->
 	application:start(crypto),
@@ -19,20 +20,40 @@ main(["observe"]) ->
 main([RawAddress]) ->
 	application:start(crypto),
 
-	Parsed = parse_mac(RawAddress),
+	{ok, IP} = inet:parse_address(RawAddress),
+	case get_mac(IP) of
+		error -> ok;
+		Parsed ->
+			Seq = crypto:strong_rand_bytes(2),
 
-	Seq = crypto:strong_rand_bytes(2),
+			PlainPacket = <<1, 1, Parsed/binary, 16#02_0b_ad_0b_ad_00:48, Seq/binary, 0:32,
+				   40:16, 0:16, 0:16, Seq/binary, 0:32, ?PORT_STATISTICS:16, 0:16, 16#FFFF0000:32>>,
+			CipherPacket = crypto:crypto_one_time(rc4, ?KEY, PlainPacket, true),
+			%io:format("~w, ~w~n", [PlainPacket, CipherPacket]),
 
-	PlainPacket = <<1, 1, Parsed/binary, 16#02_0b_ad_0b_ad_00:48, Seq/binary, 0:32,
-		   40:16, 0:16, 0:16, Seq/binary, 0:32, ?PORT_STATISTICS:16, 0:16, 16#FFFF0000:32>>,
-	CipherPacket = crypto:crypto_one_time(rc4, ?KEY, PlainPacket, true),
-	%io:format("~w, ~w~n", [PlainPacket, CipherPacket]),
+			{ok, Port} = gen_udp:open(?CLIENT_PORT, [{active, true}, {broadcast, true}, binary]),
+			ok = gen_udp:send(Port, {IP, ?SERVER_PORT}, CipherPacket),
 
-	{ok, Port} = gen_udp:open(?CLIENT_PORT, [{active, true}, binary]),
-	ok = gen_udp:send(Port, {{255,255,255,255}, ?SERVER_PORT}, CipherPacket),
+			recv(false)
+	end;
 
-	recv(false);
 main([]) -> usage().
+
+
+get_mac(IP) -> get_mac(IP, 1).
+get_mac(IP, N) ->
+	XMLString = os:cmd("arp -n --libxo xml " ++ inet:ntoa(IP)),
+	{XML, _} = xmerl_scan:string(XMLString),
+	case xmerl_xpath:string("//arp/arp-cache/mac-address/text()", XML) of
+		[#xmlText{value = Mac}] ->
+			parse_mac(Mac);
+		[] when N > 0 ->
+			os:cmd("ping -c 1 -W 100 " ++ inet:ntoa(IP)),
+			get_mac(IP, N - 1);
+		[] ->
+			error
+	end.
+
 
 recv(Continue) ->
 	receive
