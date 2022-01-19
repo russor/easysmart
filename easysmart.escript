@@ -105,4 +105,4 @@ parse_mac(Address) ->
 	list_to_binary(Out).
 
 usage() ->
-	io:format("foo AA:BB:CC:DD:EE:FF~n", []).
+	io:format("~s 203.0.113.1~n", [escript:script_name()]).
